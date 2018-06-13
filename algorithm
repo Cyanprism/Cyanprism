@@ -13,6 +13,11 @@ Type& min(Type& arg1_, Type& arg2_) {
     return arg1_ < arg2_ ? arg1_ : arg2_;
 }
 
+template <typename Type>
+Type& max(Type& arg1_, Type& arg2_) {
+    return arg1_ > arg2_ ? arg1_ : arg2_;
+}
+
 
 }
 
