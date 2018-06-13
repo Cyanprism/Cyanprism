@@ -5,6 +5,7 @@
 
 #include "_define"
 #include "algorithm"
+#include "base"
 
 #include <cstddef>
 
@@ -12,7 +13,7 @@ namespace _CYANPRISM_NAMESPACE {
 
 
 template <typename Type>
-class dynamic_array {
+class dynamic_array : public base_array<Type> {
 public:
     dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
 
@@ -22,11 +23,11 @@ public:
         delete[] _array;
     }
 
-    inline size_t size() {
+    inline size_t size() const {
         return _size;
     }
 
-    inline size_t scale() {
+    inline size_t scale() const {
         return _scale;
     }
 
@@ -78,13 +79,13 @@ private:
 
 
 template <typename Type, size_t Size>
-class static_array {
+class static_array : public base_array<Type> {
 public:
     static_array() = default;
 
     ~static_array() = default;
 
-    inline size_t size() {
+    inline size_t size() const {
         return Size;
     }
 
