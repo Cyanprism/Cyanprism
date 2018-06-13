@@ -19,6 +19,19 @@ public:
 
     dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
 
+    dynamic_array(const dynamic_array<Type>& other_) :
+            _size(other_._size), _scale(other_._scale), _array(new Type[_scale])
+    {
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = other_._array[index];
+        }
+    }
+
+    dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array) {
+        other_._size = other_._scale = 0;
+        other_._array = nullptr;
+    }
+
     ~dynamic_array() {
         delete[] _array;
     }
@@ -103,10 +116,18 @@ private:
 
 
 template <typename Type, size_t Size = 0>
-class array : public static_array<Type, Size> {};
+class array : public static_array<Type, Size> {
+public:
+    template <typename... Types>
+    array(Types... args) : static_array<Type, Size>(args...) {}
+};
 
 template <typename Type>
-class array<Type, 0> : public dynamic_array<Type> {};
+class array<Type, 0> : public dynamic_array<Type> {
+public:
+    template <typename... Types>
+    array(Types... args) : dynamic_array<Type>(args...) {}
+};
 
 
 

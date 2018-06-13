@@ -36,7 +36,16 @@ public:
     static const bool value = decltype(_test(std::declval<Type*>()))::value;
 };
 
-template <typename Array, typename = std::enable_if_t<is_base_array<Array>::value>>
+template <typename Type>
+const bool is_base_array_v = is_base_array<Type>::value;
+
+template <typename Type>
+struct enable_if_base_array : std::enable_if<is_base_array_v<Type>> {};
+
+template <typename Type>
+using enable_if_base_array_t = typename enable_if_base_array<Type>::type;
+
+template <typename Array, typename = enable_if_base_array_t<Array>>
 std::ostream& operator<<(std::ostream& out_, const Array& array_) {
     out_ << '[';
     if (!array_.empty()) {
@@ -47,6 +56,21 @@ std::ostream& operator<<(std::ostream& out_, const Array& array_) {
     }
     out_ << ']';
     return out_;
+}
+
+template <typename Array, typename Scalar, typename = enable_if_base_array_t<Array>>
+Array& operator*=(Array& array_, const Scalar& scalar_) {
+    for (size_t index = 0; index < array_.size(); ++index) {
+        array_[index] *= scalar_;
+    }
+    return array_;
+}
+
+template <typename Array, typename Scalar, typename = enable_if_base_array_t<Array>>
+Array operator*(const Array& array_, const Scalar& scalar_) {
+    Array new_array = array_;
+    new_array *= scalar_;
+    return new_array;
 }
 
 
