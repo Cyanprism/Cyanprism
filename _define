@@ -1,0 +1,10 @@
+#ifndef _CYANPRISM__DEFINE
+#define _CYANPRISM__DEFINE
+
+
+
+#define _CYANPRISM_NAMESPACE cp
+
+
+
+#endif /* _CYANPRISM__DEFINE */

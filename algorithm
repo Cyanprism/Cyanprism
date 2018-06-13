@@ -1,0 +1,21 @@
+#ifndef _CYANPRISM_ALGORITHM
+#define _CYANPRISM_ALGORITHM
+
+
+
+#include "_define"
+
+namespace _CYANPRISM_NAMESPACE {
+
+
+template <typename Type>
+Type& min(Type& arg1_, Type& arg2_) {
+    return arg1_ < arg2_ ? arg1_ : arg2_;
+}
+
+
+}
+
+
+
+#endif /* _CYANPRISM_ALGORITHM */
