@@ -1,0 +1,57 @@
+#ifndef _CYANPRISM_BASE
+#define _CYANPRISM_BASE
+
+
+
+#include "_define"
+
+#include <cstddef>
+
+#include <iostream>
+#include <type_traits>
+
+namespace _CYANPRISM_NAMESPACE {
+
+
+template <typename Type>
+class base_array {
+public:
+    virtual size_t size() const = 0;
+    virtual Type& operator[](size_t index_) = 0;
+
+    virtual inline bool empty() const {
+        return size() == 0;
+    }
+};
+
+template <typename Type>
+struct is_base_array {
+private:
+    template <typename TypeOfElements>
+    static auto _test(base_array<TypeOfElements>*) -> std::integral_constant<bool,
+            std::is_base_of<base_array<TypeOfElements>, Type>::value>;
+
+    static std::false_type _test(void*);
+public:
+    static const bool value = decltype(_test(std::declval<Type*>()))::value;
+};
+
+template <typename Array, typename = std::enable_if_t<is_base_array<Array>::value>>
+std::ostream& operator<<(std::ostream& out_, const Array& array_) {
+    out_ << '[';
+    if (!array_.empty()) {
+        out_ << array_[0];
+    }
+    for (size_t index = 1; index < array_.size(); ++index) {
+        out_ << ", " << array_[index];
+    }
+    out_ << ']';
+    return out_;
+}
+
+
+}
+
+
+
+#endif /* _CYANPRISM_BASE */
