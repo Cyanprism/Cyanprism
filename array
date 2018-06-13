@@ -1,0 +1,21 @@
+#ifndef _CYANPRISM_ARRAY
+#define _CYANPRISM_ARRAY
+
+
+
+#include "_define"
+
+namespace _CYANPRISM_NAMESPACE {
+
+
+class dynamic_array {
+
+};
+
+
+
+}
+
+
+
+#endif /* _CYANPRISM_ARRAY */
