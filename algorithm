@@ -9,13 +9,23 @@ namespace _CYANPRISM_NAMESPACE {
 
 
 template <typename Type>
-Type& min(Type& arg1_, Type& arg2_) {
+inline const Type& min(const Type& arg1_, const Type& arg2_) {
     return arg1_ < arg2_ ? arg1_ : arg2_;
 }
 
 template <typename Type>
-Type& max(Type& arg1_, Type& arg2_) {
+inline Type& min(Type& arg1_, Type& arg2_) {
+    return const_cast<Type&>(min(const_cast<const Type&>(arg1_), const_cast<const Type&>(arg2_)));
+}
+
+template <typename Type>
+inline const Type& max(const Type& arg1_, const Type& arg2_) {
     return arg1_ > arg2_ ? arg1_ : arg2_;
+}
+
+template <typename Type>
+inline Type& max(Type& arg1_, Type& arg2_) {
+    return const_cast<Type&>(max(const_cast<const Type&>(arg1_), const_cast<const Type&>(arg2_)));
 }
 
 
