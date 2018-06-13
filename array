@@ -35,7 +35,7 @@ public:
         _size = cp::min(_size, new_scale_);
         auto new_array = new Type[new_scale_];
         for (size_t index = 0; index < _size; ++index) {
-            new_array = std::move(_array[index]);
+            new_array[index] = std::move(_array[index]);
         }
         delete[] _array;
         _array = new_array;
@@ -43,11 +43,29 @@ public:
     }
 
     void resize(size_t new_size_) {
-
+        if (new_size_ > _scale) {
+            rescale(max(new_size_, static_cast<size_t>(_scale * _scale_coefficient)));
+            _size = new_size_;
+        } else if (new_size_ <= static_cast<size_t>(_scale / _scale_coefficient_2)) {
+            _size = new_size_;
+            rescale(min(new_size_, static_cast<size_t>(_scale / _scale_coefficient)));
+        } else {
+            _size = new_size_;
+        }
     }
 
     Type& operator[](size_t index_) {
+        if (index_ >= _size) {
+            resize(index_ + 1);
+        }
+        return _array[index_];
+    }
 
+    const Type& operator[](size_t index_) const {
+        if (index_ >= _size) {
+            throw;
+        }
+        return _array[index_];
     }
 
 private:
@@ -57,6 +75,37 @@ private:
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
+
+
+template <typename Type, size_t Size>
+class static_array {
+public:
+    static_array() = default;
+
+    ~static_array() = default;
+
+    inline size_t size() {
+        return Size;
+    }
+
+    Type& operator[](size_t index_) {
+        return _array[index_];
+    }
+
+    const Type& operator[](size_t index_) const {
+        return _array[index_];
+    }
+
+private:
+    Type _array[Size];
+};
+
+
+template <typename Type, size_t Size = 0>
+class array : public static_array<Type, Size> {};
+
+template <typename Type>
+class array<Type, 0> : public dynamic_array<Type> {};
 
 
 
