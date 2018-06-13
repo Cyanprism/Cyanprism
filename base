@@ -58,19 +58,62 @@ std::ostream& operator<<(std::ostream& out_, const Array& array_) {
     return out_;
 }
 
-template <typename Array, typename Scalar, typename = enable_if_base_array_t<Array>>
-Array& operator*=(Array& array_, const Scalar& scalar_) {
-    for (size_t index = 0; index < array_.size(); ++index) {
-        array_[index] *= scalar_;
+template <typename Array1, typename Array2,
+            typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator==(const Array1& array1_, const Array2& array2_) {
+    if (array1_.size() != array2_.size()) {
+        return false;
     }
-    return array_;
+    for (size_t index = 0; index < array1_.size(); ++index) {
+        if (array1_[index] != array2_[index]) {
+            return false;
+        }
+    }
+    return true;
 }
 
-template <typename Array, typename Scalar, typename = enable_if_base_array_t<Array>>
-Array operator*(const Array& array_, const Scalar& scalar_) {
-    Array new_array = array_;
-    new_array *= scalar_;
-    return new_array;
+template <typename Array1, typename Array2,
+        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator!=(const Array1& array1_, const Array2& array2_) {
+    return !(array1_ == array2_);
+}
+
+template <typename Array1, typename Array2,
+        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator<(const Array1& array1_, const Array2& array2_) {
+    if (array1_.size() < array2_.size()) {
+        return true;
+    }
+    if (array1_.size() > array2_.size()) {
+        return false;
+    }
+    for (size_t index = 0; index < array1_.size(); ++index) {
+        if (array1_[index] < array2_[index]) {
+            return true;
+        }
+        if (array1_[index] > array2_[index]) {
+            return false;
+        }
+    }
+    return false;
+}
+
+template <typename Array1, typename Array2,
+        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator<=(const Array1& array1_, const Array2& array2_) {
+    return array1_ < array2_ || array1_ == array2_;
+}
+
+template <typename Array1, typename Array2,
+        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator>(const Array1& array1_, const Array2& array2_) {
+    return !(array1_ <= array2_);
+}
+
+template <typename Array1, typename Array2,
+        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+bool operator>=(const Array1& array1_, const Array2& array2_) {
+    return !(array1_ < array2_);
 }
 
 
