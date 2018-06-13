@@ -19,6 +19,12 @@ public:
 
     dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
 
+    dynamic_array(size_t size_, const Type& default_) : _size(size_), _scale(size_), _array(new Type[size_]) {
+        for (size_t index = 0; index < size_; ++index) {
+            _array[index] = default_;
+        }
+    }
+
     dynamic_array(const dynamic_array<Type>& other_) :
             _size(other_._size), _scale(other_._scale), _array(new Type[_scale])
     {
@@ -34,6 +40,27 @@ public:
 
     ~dynamic_array() {
         delete[] _array;
+    }
+
+    dynamic_array<Type>& operator=(const dynamic_array& other_) {
+        delete[] _array;
+        _size = other_._size;
+        _scale = other_._scale;
+        _array = new Type[_scale];
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = other_._array[index];
+        }
+        return *this;
+    }
+
+    dynamic_array<Type>& operator=(dynamic_array&& other_) {
+        delete[] _array;
+        _size = other_._size;
+        _scale = other_._scale;
+        _array = other_._array;
+        other_._size = other_._scale = 0;
+        other_._array = nullptr;
+        return *this;
     }
 
     inline size_t size() const {
@@ -96,7 +123,39 @@ class static_array : public base_array<Type> {
 public:
     static_array() = default;
 
+    static_array(const Type& default_) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = default_;
+        }
+    }
+
+    static_array(const static_array& other_) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = other_._array[index];
+        }
+    }
+
+    static_array(static_array&& other_) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = std::move(other_._array[index]);
+        }
+    }
+
     ~static_array() = default;
+
+    static_array<Type, Size>& operator=(const static_array<Type, Size>& other_) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = other_._array[index];
+        }
+        return *this;
+    }
+
+    static_array<Type, Size>& operator=(static_array<Type, Size>&& other_) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = std::move(other_._array[index]);
+        }
+        return *this;
+    }
 
     inline size_t size() const {
         return Size;
