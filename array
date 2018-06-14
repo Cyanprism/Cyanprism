@@ -13,11 +13,33 @@ namespace _CYANPRISM_NAMESPACE {
 
 
 template <typename Type>
+class dynamic_array;
+
+template <typename Type, size_t Size>
+class static_array;
+
+namespace _CYANPRISM_NAMESPACE_DETAILS {
+    template<typename Type, size_t Size = 0>
+    struct _array {
+        using type = static_array<Type, Size>;
+    };
+
+    template<typename Type>
+    struct _array<Type, 0> {
+        using type = dynamic_array<Type>;
+    };
+}
+
+template <typename Type, size_t Size = 0>
+using array = typename _CYANPRISM_NAMESPACE_DETAILS::_array<Type, Size>::type;
+
+
+template <typename Type>
 class dynamic_array : public base_array<Type> {
 public:
     dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
 
-    dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
+    explicit dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
 
     dynamic_array(size_t size_, const Type& default_) : _size(size_), _scale(size_), _array(new Type[size_]) {
         for (size_t index = 0; index < size_; ++index) {
@@ -33,9 +55,23 @@ public:
         }
     }
 
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    explicit dynamic_array(const Array& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = other_[index];
+        }
+    }
+
     dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array) {
         other_._size = other_._scale = 0;
         other_._array = nullptr;
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = std::move(other_[index]);
+        }
     }
 
     ~dynamic_array() {
@@ -44,11 +80,22 @@ public:
 
     dynamic_array<Type>& operator=(const dynamic_array& other_) {
         delete[] _array;
-        _size = other_._size;
-        _scale = other_._scale;
+        _size = _scale = other_._size;
         _array = new Type[_scale];
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = other_._array[index];
+        }
+        return *this;
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    dynamic_array<Type>& operator=(const Array& other_) {
+        delete[] _array;
+        _size = other_.size();
+        _scale = other_.size();
+        _array = new Type[_scale];
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = other_[index];
         }
         return *this;
     }
@@ -60,6 +107,17 @@ public:
         _array = other_._array;
         other_._size = other_._scale = 0;
         other_._array = nullptr;
+        return *this;
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    dynamic_array<Type>& operator=(Array&& other_) {
+        delete[] _array;
+        _size = _scale = other_.size();
+        _array = new Type[_scale];
+        for (size_t index = 0; index < _size; ++index) {
+            _array[index] = other_[index];
+        }
         return *this;
     }
 
@@ -171,21 +229,6 @@ public:
 
 private:
     Type _array[Size];
-};
-
-
-template <typename Type, size_t Size = 0>
-class array : public static_array<Type, Size> {
-public:
-    template <typename... Types>
-    array(Types... args) : static_array<Type, Size>(args...) {}
-};
-
-template <typename Type>
-class array<Type, 0> : public dynamic_array<Type> {
-public:
-    template <typename... Types>
-    array(Types... args) : dynamic_array<Type>(args...) {}
 };
 
 

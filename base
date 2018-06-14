@@ -33,7 +33,7 @@ private:
 
     static std::false_type _test(void*);
 public:
-    static const bool value = decltype(_test(std::declval<Type*>()))::value;
+    static const bool value = decltype(_test(std::declval<std::remove_cv_t<std::remove_reference_t<Type>>*>()))::value;
 };
 
 template <typename Type>
