@@ -5,6 +5,8 @@
 
 #include "_define"
 
+#include <cstddef>
+
 namespace _CYANPRISM_NAMESPACE {
 
 

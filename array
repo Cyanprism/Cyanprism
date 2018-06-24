@@ -39,9 +39,11 @@ class dynamic_array : public base_array<Type> {
 public:
     dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
 
-    explicit dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
+    //explicit dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
 
-    dynamic_array(size_t size_, const Type& default_) : _size(size_), _scale(size_), _array(new Type[size_]) {
+    explicit dynamic_array(size_t size_, const Type& default_ = Type()) :
+            _size(size_), _scale(size_), _array(new Type[size_])
+    {
         for (size_t index = 0; index < size_; ++index) {
             _array[index] = default_;
         }
@@ -181,7 +183,7 @@ class static_array : public base_array<Type> {
 public:
     static_array() = default;
 
-    static_array(const Type& default_) {
+    explicit static_array(const Type& default_) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = default_;
         }
@@ -193,9 +195,31 @@ public:
         }
     }
 
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    explicit static_array(const Array& other_) {
+        size_t size = min(Size, other_.size());
+        for (size_t index = 0; index < size; ++index) {
+            _array[index] = other_[index];
+        }
+        for (size_t index = size; index < Size; ++index) {
+            _array[index] = Type();
+        }
+    }
+
     static_array(static_array&& other_) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = std::move(other_._array[index]);
+        }
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    explicit static_array(Array&& other_) {
+        size_t size = min(Size, other_.size());
+        for (size_t index = 0; index < size; ++index) {
+            _array[index] = std::move(other_[index]);
+        }
+        for (size_t index = size; index < Size; ++index) {
+            _array[index] = Type();
         }
     }
 
@@ -208,9 +232,33 @@ public:
         return *this;
     }
 
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    static_array<Type, Size>& operator=(const Array& other_) {
+        size_t size = min(Size, other_.size());
+        for (size_t index = 0; index < size; ++index) {
+            _array[index] = other_[index];
+        }
+        for (size_t index = size; index < Size; ++index) {
+            _array[index] = Type();
+        }
+        return *this;
+    }
+
     static_array<Type, Size>& operator=(static_array<Type, Size>&& other_) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = std::move(other_._array[index]);
+        }
+        return *this;
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    static_array<Type, Size>& operator=(Array&& other_) {
+        size_t size = min(Size, other_.size());
+        for (size_t index = 0; index < size; ++index) {
+            _array[index] = std::move(other_[index]);
+        }
+        for (size_t index = size; index < Size; ++index) {
+            _array[index] = Type();
         }
         return *this;
     }
