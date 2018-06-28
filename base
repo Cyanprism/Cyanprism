@@ -27,13 +27,15 @@ public:
 template <typename Type>
 struct is_base_array {
 private:
+    using _Type = typename std::remove_cv_t<std::remove_reference_t<Type>>;
+
     template <typename TypeOfElements>
     static auto _test(base_array<TypeOfElements>*) -> std::integral_constant<bool,
-            std::is_base_of<base_array<TypeOfElements>, Type>::value>;
+            std::is_base_of<base_array<TypeOfElements>, _Type>::value>;
 
     static std::false_type _test(void*);
 public:
-    static const bool value = decltype(_test(std::declval<std::remove_cv_t<std::remove_reference_t<Type>>*>()))::value;
+    static const bool value = decltype(_test(std::declval<_Type*>()))::value;
 };
 
 template <typename Type>
