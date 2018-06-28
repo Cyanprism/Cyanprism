@@ -8,6 +8,7 @@
 #include "base"
 
 #include <cstddef>
+#include <type_traits>
 
 namespace _CYANPRISM_NAMESPACE {
 
@@ -35,7 +36,7 @@ using array = typename _CYANPRISM_NAMESPACE_DETAILS::_array<Type, Size>::type;
 
 
 template <typename Type>
-class dynamic_array : public base_array<Type> {
+class dynamic_array : public extensible_array_base<Type> {
 public:
     dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
 
@@ -55,7 +56,7 @@ public:
         }
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     explicit dynamic_array(const Array& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = other_[index];
@@ -67,7 +68,7 @@ public:
         other_._array = nullptr;
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = std::move(other_[index]);
@@ -88,7 +89,7 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     dynamic_array<Type>& operator=(const Array& other_) {
         delete[] _array;
         _size = other_.size();
@@ -110,7 +111,7 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     dynamic_array<Type>& operator=(Array&& other_) {
         delete[] _array;
         _size = _scale = other_.size();
@@ -167,6 +168,12 @@ public:
         return _array[index_];
     }
 
+    void clear() {
+        delete[] _array;
+        _size = 0;
+        _scale = 0;
+    }
+
     Type& push_back() {
         return operator[](size());
     }
@@ -174,22 +181,6 @@ public:
     template <typename Type_>
     Type& push_back(Type_&& value_) {
         return (operator[](size()) = std::forward<Type_>(value_));
-    }
-
-    template <typename Array, typename = enable_if_base_array_t<Array>>
-    dynamic_array<Type>& operator+=(const Array& other_) {
-        for (size_t index = 0; index < other_.size(); ++index) {
-            push_back(other_[index]);
-        }
-        return *this;
-    }
-
-    template <typename Array, typename = enable_if_base_array_t<Array>>
-    dynamic_array<Type>& operator+=(Array&& other_) {
-        for (size_t index = 0; index < other_.size(); ++index) {
-            push_back(std::move(other_[index]));
-        }
-        return *this;
     }
 
 private:
@@ -200,23 +191,9 @@ private:
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
 
-template <typename Type, typename Array, typename = enable_if_base_array_t<Array>>
-dynamic_array<Type> operator+(const dynamic_array<Type>& array_, Array&& other_) {
-    dynamic_array<Type> result(array_);
-    result += std::forward<Array>(other_);
-    return result;
-}
-
-template <typename Type, typename Array, typename = enable_if_base_array_t<Array>>
-dynamic_array<Type> operator+(dynamic_array<Type>&& array_, Array&& other_) {
-    dynamic_array<Type> result(std::move(array_));
-    result += std::forward<Array>(other_);
-    return result;
-}
-
 
 template <typename Type, size_t Size>
-class static_array : public base_array<Type> {
+class static_array : public array_base<Type> {
 public:
     static_array() = default;
 
@@ -232,7 +209,7 @@ public:
         }
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     explicit static_array(const Array& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {
@@ -249,7 +226,7 @@ public:
         }
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     explicit static_array(Array&& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {
@@ -269,7 +246,7 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     static_array<Type, Size>& operator=(const Array& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {
@@ -288,7 +265,7 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename Array, typename = enable_if_array<Array>>
     static_array<Type, Size>& operator=(Array&& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {

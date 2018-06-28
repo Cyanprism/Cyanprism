@@ -13,11 +13,11 @@
 namespace _CYANPRISM_NAMESPACE {
 
 
-template <typename Type>
-class base_array {
+template <typename ElementType>
+class array_base {
 public:
     virtual size_t size() const = 0;
-    virtual Type& operator[](size_t index_) = 0;
+    virtual ElementType& operator[](size_t index_) = 0;
 
     virtual inline bool empty() const {
         return size() == 0;
@@ -25,13 +25,13 @@ public:
 };
 
 template <typename Type>
-struct is_base_array {
+struct is_array {
 private:
     using _Type = typename std::remove_cv_t<std::remove_reference_t<Type>>;
 
-    template <typename TypeOfElements>
-    static auto _test(base_array<TypeOfElements>*) -> std::integral_constant<bool,
-            std::is_base_of<base_array<TypeOfElements>, _Type>::value>;
+    template <typename ElementType>
+    static auto _test(array_base<ElementType>*) -> std::integral_constant<bool,
+            std::is_base_of<array_base<ElementType>, _Type>::value>;
 
     static std::false_type _test(void*);
 public:
@@ -39,15 +39,33 @@ public:
 };
 
 template <typename Type>
-const bool is_base_array_v = is_base_array<Type>::value;
+const bool is_array_v = is_array<Type>::value;
 
 template <typename Type>
-struct enable_if_base_array : std::enable_if<is_base_array_v<Type>> {};
+using enable_if_array = typename std::enable_if<is_array_v<Type>>::type;
 
-template <typename Type>
-using enable_if_base_array_t = typename enable_if_base_array<Type>::type;
+template <typename Array, typename = enable_if_array<Array>>
+struct array_element{
+public:
+    using _Array = typename std::remove_cv_t<std::remove_reference_t<Array>>;
 
-template <typename Array, typename = enable_if_base_array_t<Array>>
+    template <typename ElementType>
+    static auto _type(array_base<ElementType>*) -> ElementType;
+
+public:
+    using type = decltype(_type(std::declval<_Array*>()));
+};
+
+template <typename Array>
+using array_element_type = typename array_element<Array>::type;
+
+template <typename Array, typename = enable_if_array<Array>>
+decltype(auto) array_forward(array_element_type<Array>& element_) {
+    return static_cast<std::conditional_t<std::is_lvalue_reference_v<Array>,
+            array_element_type<Array>&, array_element_type<Array>&&>>(element_);
+}
+
+template <typename Array, typename = enable_if_array<Array>>
 std::ostream& operator<<(std::ostream& out_, const Array& array_) {
     out_ << '[';
     if (!array_.empty()) {
@@ -61,7 +79,8 @@ std::ostream& operator<<(std::ostream& out_, const Array& array_) {
 }
 
 template <typename Array1, typename Array2,
-            typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+            typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator==(const Array1& array1_, const Array2& array2_) {
     if (array1_.size() != array2_.size()) {
         return false;
@@ -75,13 +94,15 @@ bool operator==(const Array1& array1_, const Array2& array2_) {
 }
 
 template <typename Array1, typename Array2,
-        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+        typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator!=(const Array1& array1_, const Array2& array2_) {
     return !(array1_ == array2_);
 }
 
 template <typename Array1, typename Array2,
-        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+        typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator<(const Array1& array1_, const Array2& array2_) {
     if (array1_.size() < array2_.size()) {
         return true;
@@ -101,21 +122,60 @@ bool operator<(const Array1& array1_, const Array2& array2_) {
 }
 
 template <typename Array1, typename Array2,
-        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+        typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator<=(const Array1& array1_, const Array2& array2_) {
     return array1_ < array2_ || array1_ == array2_;
 }
 
 template <typename Array1, typename Array2,
-        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+        typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator>(const Array1& array1_, const Array2& array2_) {
     return !(array1_ <= array2_);
 }
 
 template <typename Array1, typename Array2,
-        typename = enable_if_base_array_t<Array1>, typename = enable_if_base_array_t<Array2>>
+        typename = enable_if_array<Array1>, typename = enable_if_array<Array2>
+>
 bool operator>=(const Array1& array1_, const Array2& array2_) {
     return !(array1_ < array2_);
+}
+
+
+template <typename ElementType>
+class extensible_array_base : virtual public array_base<ElementType> {
+public:
+};
+
+template <typename Type>
+struct is_extensible_array {
+private:
+    using _Type = typename std::remove_cv_t<std::remove_reference_t<Type>>;
+
+    template <typename TypeOfElements>
+    static auto _test(extensible_array_base<TypeOfElements>*) -> std::integral_constant<bool,
+            std::is_base_of<extensible_array_base<TypeOfElements>, _Type>::value>;
+
+    static std::false_type _test(void*);
+public:
+    static const bool value = decltype(_test(std::declval<_Type*>()))::value;
+};
+
+template <typename Type>
+const bool is_extensible_array_v = is_extensible_array<Type>::value;
+
+template <typename Type>
+using enable_if_extensible_array = typename std::enable_if<is_extensible_array_v<Type>>::type;
+
+template <typename Array1, typename Array2,
+        typename = enable_if_extensible_array<Array1>, typename = enable_if_array<Array2>
+>
+Array1& operator+=(Array1& array1_, Array2&& array2_) {
+    for (size_t index = 0; index < array2_.size(); ++index) {
+        array1_.push_back(array_forward<Array2>(array2_[index]));
+    }
+    return array1_;
 }
 
 
