@@ -184,6 +184,14 @@ public:
         return *this;
     }
 
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    dynamic_array<Type>& operator+=(Array&& other_) {
+        for (size_t index = 0; index < other_.size(); ++index) {
+            push_back(std::move(other_[index]));
+        }
+        return *this;
+    }
+
 private:
     size_t _size;
     size_t _scale;
@@ -191,6 +199,20 @@ private:
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
+
+template <typename Type, typename Array, typename = enable_if_base_array_t<Array>>
+dynamic_array<Type> operator+(const dynamic_array<Type>& array_, Array&& other_) {
+    dynamic_array<Type> result(array_);
+    result += std::forward<Array>(other_);
+    return result;
+}
+
+template <typename Type, typename Array, typename = enable_if_base_array_t<Array>>
+dynamic_array<Type> operator+(dynamic_array<Type>&& array_, Array&& other_) {
+    dynamic_array<Type> result(std::move(array_));
+    result += std::forward<Array>(other_);
+    return result;
+}
 
 
 template <typename Type, size_t Size>
