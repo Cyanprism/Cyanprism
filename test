@@ -1,0 +1,97 @@
+#ifndef _CYANPRISM_TEST
+#define _CYANPRISM_TEST
+
+
+
+#include "_define"
+
+#include <iostream>
+#include <string>
+
+namespace _CYANPRISM_NAMESPACE {
+
+
+class test_int {
+public:
+    test_int() : _is_defined(false), _value() {
+        std::clog << _log_prefix << "Default constructor" << std::endl;
+    }
+
+    test_int(const test_int& other_) : _is_defined(other_._is_defined), _value(other_._value) {
+        std::clog << _log_prefix << "Copy constructor" << std::endl;
+    }
+
+    test_int(const int& other_) : _is_defined(true), _value(other_) {
+        std::clog << _log_prefix << "Copy constructor from int" << std::endl;
+    }
+
+    test_int(test_int&& other_) : _is_defined(other_._is_defined), _value(other_._value) {
+        other_._is_defined = false;
+        std::clog << _log_prefix << "Move constructor" << std::endl;
+    }
+
+    test_int(int&& other_) : _is_defined(false), _value(std::move(other_)) {
+        std::clog << _log_prefix << "Move constructor from int" << std::endl;
+    }
+
+    test_int& operator=(const test_int& other_) {
+        _is_defined = other_._is_defined;
+        _value = other_._value;
+        std::clog << _log_prefix << "Copy operator" << std::endl;
+        return *this;
+    }
+
+    test_int& operator=(const int& other_) {
+        _is_defined = true;
+        _value = other_;
+        std::clog << _log_prefix << "Copy operator from int" << std::endl;
+        return *this;
+    }
+
+    test_int& operator=(test_int&& other_) {
+        _is_defined = other_._is_defined;
+        _value = other_._value;
+        other_._is_defined = false;
+        std::clog << _log_prefix << "Move operator" << std::endl;
+        return *this;
+    }
+
+    test_int& operator=(int&& other_) {
+        _is_defined = true;
+        _value = other_;
+        std::clog << _log_prefix << "Move operator from int" << std::endl;
+        return *this;
+    }
+
+    ~test_int() = default;
+
+    inline int value() const {
+        return _value;
+    }
+
+    inline bool is_defined() const {
+        return _is_defined;
+    }
+
+private:
+    int _value;
+    bool _is_defined;
+    const std::string _log_prefix = "<cp::test_int> ";
+};
+
+std::ostream& operator<<(std::ostream& out_, const test_int& class_) {
+    if (class_.is_defined()) {
+        out_ << class_.value();
+    } else {
+        out_ << "N/D";
+    }
+
+    return out_;
+}
+
+
+}
+
+
+
+#endif /* _CYANPRISM_TEST */
