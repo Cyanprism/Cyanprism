@@ -56,13 +56,6 @@ public:
         }
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    explicit dynamic_array(const Array& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
-        for (size_t index = 0; index < _size; ++index) {
-            _array[index] = other_[index];
-        }
-    }
-
     dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array) {
         other_._size = other_._scale = 0;
         other_._array = nullptr;
@@ -71,7 +64,7 @@ public:
     template <typename Array, typename = enable_if_array<Array>>
     explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
         for (size_t index = 0; index < _size; ++index) {
-            _array[index] = std::move(other_[index]);
+            _array[index] = array_forward<Array>(other_[index]);
         }
     }
 
@@ -85,18 +78,6 @@ public:
         _array = new Type[_scale];
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = other_._array[index];
-        }
-        return *this;
-    }
-
-    template <typename Array, typename = enable_if_array<Array>>
-    dynamic_array<Type>& operator=(const Array& other_) {
-        delete[] _array;
-        _size = other_.size();
-        _scale = other_.size();
-        _array = new Type[_scale];
-        for (size_t index = 0; index < _size; ++index) {
-            _array[index] = other_[index];
         }
         return *this;
     }
@@ -117,7 +98,7 @@ public:
         _size = _scale = other_.size();
         _array = new Type[_scale];
         for (size_t index = 0; index < _size; ++index) {
-            _array[index] = std::move(other_[index]);
+            _array[index] = array_forward<Array>(other_[index]);
         }
         return *this;
     }
@@ -209,17 +190,6 @@ public:
         }
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    explicit static_array(const Array& other_) {
-        size_t size = min(Size, other_.size());
-        for (size_t index = 0; index < size; ++index) {
-            _array[index] = other_[index];
-        }
-        for (size_t index = size; index < Size; ++index) {
-            _array[index] = Type();
-        }
-    }
-
     static_array(static_array&& other_) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = std::move(other_._array[index]);
@@ -230,7 +200,7 @@ public:
     explicit static_array(Array&& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {
-            _array[index] = std::move(other_[index]);
+            _array[index] = array_forward<Array>(other_[index]);
         }
         for (size_t index = size; index < Size; ++index) {
             _array[index] = Type();
@@ -246,18 +216,6 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    static_array<Type, Size>& operator=(const Array& other_) {
-        size_t size = min(Size, other_.size());
-        for (size_t index = 0; index < size; ++index) {
-            _array[index] = other_[index];
-        }
-        for (size_t index = size; index < Size; ++index) {
-            _array[index] = Type();
-        }
-        return *this;
-    }
-
     static_array<Type, Size>& operator=(static_array<Type, Size>&& other_) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = std::move(other_._array[index]);
@@ -269,7 +227,7 @@ public:
     static_array<Type, Size>& operator=(Array&& other_) {
         size_t size = min(Size, other_.size());
         for (size_t index = 0; index < size; ++index) {
-            _array[index] = std::move(other_[index]);
+            _array[index] = array_forward<Array>(other_[index]);
         }
         for (size_t index = size; index < Size; ++index) {
             _array[index] = Type();

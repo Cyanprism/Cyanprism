@@ -178,6 +178,15 @@ Array1& operator+=(Array1& array1_, Array2&& array2_) {
     return array1_;
 }
 
+template <typename Array1, typename Array2,
+        typename = enable_if_extensible_array<Array1>, typename = enable_if_array<Array2>
+>
+auto operator+(Array1&& array1_, Array2&& array2_) {
+    std::remove_reference_t<Array1> result(std::forward<Array1>(array1_));
+    result += std::forward<Array2>(array2_);
+    return result;
+}
+
 
 }
 
