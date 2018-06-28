@@ -30,7 +30,7 @@ public:
         std::clog << _log_prefix << "Move constructor" << std::endl;
     }
 
-    test_int(int&& other_) : _is_defined(false), _value(std::move(other_)) {
+    test_int(int&& other_) : _is_defined(true), _value(std::move(other_)) {
         std::clog << _log_prefix << "Move constructor from int" << std::endl;
     }
 
