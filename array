@@ -39,8 +39,6 @@ class dynamic_array : public base_array<Type> {
 public:
     dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
 
-    //explicit dynamic_array(size_t size_) : _size(size_), _scale(size_), _array(new Type[size_]) {}
-
     explicit dynamic_array(size_t size_, const Type& default_ = Type()) :
             _size(size_), _scale(size_), _array(new Type[size_])
     {
@@ -118,7 +116,7 @@ public:
         _size = _scale = other_.size();
         _array = new Type[_scale];
         for (size_t index = 0; index < _size; ++index) {
-            _array[index] = other_[index];
+            _array[index] = std::move(other_[index]);
         }
         return *this;
     }
@@ -167,6 +165,23 @@ public:
             throw;
         }
         return _array[index_];
+    }
+
+    Type& push_back() {
+        return operator[](size());
+    }
+
+    template <typename Type_>
+    Type& push_back(Type_&& value_) {
+        return (operator[](size()) = std::forward<Type_>(value_));
+    }
+
+    template <typename Array, typename = enable_if_base_array_t<Array>>
+    dynamic_array<Type>& operator+=(const Array& other_) {
+        for (size_t index = 0; index < other_.size(); ++index) {
+            push_back(other_[index]);
+        }
+        return *this;
     }
 
 private:
