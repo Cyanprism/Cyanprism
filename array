@@ -6,8 +6,10 @@
 #include "_define"
 #include "algorithm"
 #include "base"
+#include "generator"
 
 #include <cstddef>
+#include <iterator>
 #include <type_traits>
 
 namespace _CYANPRISM_NAMESPACE {
@@ -16,11 +18,20 @@ namespace _CYANPRISM_NAMESPACE {
 template <typename Type>
 class dynamic_array;
 
+namespace _CYANPRISM_NAMESPACE_DETAILS {
+    template<typename Type>
+    class _dynamic_array_generator;
+}
+
+template <typename Type>
+using dynamic_array_generator = generator<_CYANPRISM_NAMESPACE_DETAILS::_dynamic_array_generator<Type>>;
+
+
 template <typename Type, size_t Size>
 class static_array;
 
 namespace _CYANPRISM_NAMESPACE_DETAILS {
-    template<typename Type, size_t Size = 0>
+    template<typename Type, size_t Size>
     struct _array {
         using type = static_array<Type, Size>;
     };
@@ -164,6 +175,10 @@ public:
         return (operator[](size()) = std::forward<Type_>(value_));
     }
 
+    void pop_back() {
+        resize(size() - 1);
+    }
+
 private:
     size_t _size;
     size_t _scale;
@@ -171,6 +186,43 @@ private:
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
+
+namespace _CYANPRISM_NAMESPACE_DETAILS {
+    template <typename Type>
+    class _dynamic_array_generator : public random_access_generator<Type> {
+    public:
+        _dynamic_array_generator(dynamic_array<Type>* array_, size_t first_, size_t second_) :
+                _array(array_), _begin(first_), _end(second_), _current(first_) {}
+
+        _dynamic_array_generator(const _dynamic_array_generator&) = default;
+
+        _dynamic_array_generator(_dynamic_array_generator&&) = default;
+
+        _dynamic_array_generator<Type>& operator=(const _dynamic_array_generator&) = default;
+
+        _dynamic_array_generator<Type>& operator=(_dynamic_array_generator&&) = default;
+
+        ~_dynamic_array_generator() = default;
+
+        Type& get() {
+            return _array->operator[](_current);
+        }
+
+        void move(int delta_) {
+            _current += delta_;
+        }
+
+        bool empty() {
+            return _current == _end;
+        }
+
+    private:
+        dynamic_array<Type>* _array;
+        size_t _begin;
+        size_t _end;
+        size_t _current;
+    };
+}
 
 
 template <typename Type, size_t Size>

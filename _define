@@ -4,6 +4,7 @@
 
 
 #define _CYANPRISM_NAMESPACE cp
+#define _CYANPRISM_NAMESPACE_DETAILS _
 
 
 
