@@ -1,0 +1,121 @@
+#ifndef _CYANPRISM_GENERATOR
+#define _CYANPRISM_GENERATOR
+
+
+
+#include "_define"
+
+#include <type_traits>
+
+namespace _CYANPRISM_NAMESPACE {
+
+
+template <typename Type>
+class forward_generator_base {
+public:
+    virtual Type& get() = 0;
+    virtual void next() = 0;
+    virtual bool empty() = 0;
+    virtual forward_generator_base* copy() = 0;
+    virtual ~forward_generator_base() = default;
+};
+
+template <typename Type>
+class forward_generator {
+public:
+    forward_generator(forward_generator_base<Type>* generator_) : _generator(generator_) {}
+
+    forward_generator(const forward_generator<Type>& other_) : _generator(other_._generator->copy()) {}
+
+    forward_generator(forward_generator<Type>&& other_) : _generator(other_._generator) {
+        other_._generator = nullptr;
+    }
+
+    forward_generator<Type>& operator=(const forward_generator<Type>& other_) {
+        delete _generator;
+        _generator = other_._generator->copy();
+    }
+
+    forward_generator<Type>& operator=(forward_generator<Type>&& other_) {
+        delete _generator;
+        _generator = other_._generator;
+        other_._generator = nullptr;
+    }
+
+    ~forward_generator() {
+        delete _generator;
+    }
+
+    inline Type& operator*() {
+        return _generator->get();
+    }
+
+    inline void operator++() {
+        _generator->next();
+    }
+
+    inline void operator++(int) {
+        operator++();
+    }
+
+    operator bool() {
+        return !_generator->empty();
+    }
+
+protected:
+    forward_generator_base<Type>* _generator;
+};
+
+
+template <typename Type>
+class random_access_generator_base : public forward_generator_base<Type> {
+public:
+    virtual Type& get(size_t index_) = 0;
+    virtual size_t size() = 0;
+    virtual random_access_generator_base* copy() = 0;
+    virtual ~random_access_generator_base() = default;
+
+    Type& get() {
+        return get(_current);
+    }
+
+    void next() {
+        ++_current;
+    }
+
+    bool empty() {
+        return _current == size();
+    }
+
+private:
+    size_t _current = 0;
+};
+
+template <typename Type>
+class random_access_generator : private forward_generator<Type> {
+public:
+    random_access_generator(random_access_generator_base<Type>* generator_) : forward_generator<Type>(generator_) {}
+
+    random_access_generator(const random_access_generator<Type>&) = default;
+
+    random_access_generator(random_access_generator<Type>&&) = default;
+
+    random_access_generator<Type>& operator=(const random_access_generator<Type>&) = default;
+
+    random_access_generator<Type>& operator=(random_access_generator<Type>&&) = default;
+
+    ~random_access_generator() = default;
+
+    Type& operator[](size_t index_) {
+        return dynamic_cast<random_access_generator_base<Type>*>(forward_generator<Type>::_generator)->get(index_);
+    }
+
+    size_t size() {
+        return dynamic_cast<random_access_generator_base<Type>*>(forward_generator<Type>::_generator)->size();
+    }
+};
+
+
+}
+
+#endif /* _CYANPRISM_GENERATOR */

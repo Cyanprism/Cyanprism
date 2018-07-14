@@ -18,19 +18,10 @@ namespace _CYANPRISM_NAMESPACE {
 template <typename Type>
 class dynamic_array;
 
-namespace _CYANPRISM_NAMESPACE_DETAILS {
-    template<typename Type>
-    class _dynamic_array_generator;
-}
-
-template <typename Type>
-using dynamic_array_generator = generator<_CYANPRISM_NAMESPACE_DETAILS::_dynamic_array_generator<Type>>;
-
-
 template <typename Type, size_t Size>
 class static_array;
 
-namespace _CYANPRISM_NAMESPACE_DETAILS {
+namespace _CYANPRISM_DETAILS_NAMESPACE {
     template<typename Type, size_t Size>
     struct _array {
         using type = static_array<Type, Size>;
@@ -43,16 +34,16 @@ namespace _CYANPRISM_NAMESPACE_DETAILS {
 }
 
 template <typename Type, size_t Size = 0>
-using array = typename _CYANPRISM_NAMESPACE_DETAILS::_array<Type, Size>::type;
+using array = typename _CYANPRISM_DETAILS_NAMESPACE::_array<Type, Size>::type;
 
 
 template <typename Type>
-class dynamic_array : public extensible_array_base<Type> {
+class dynamic_array : public forward_generator<Type> {
 public:
-    dynamic_array() : _size(0), _scale(0), _array(nullptr) {}
+    dynamic_array() : _size(0), _scale(0), _array(nullptr), forward_generator<Type>(new generator(this)) {}
 
     explicit dynamic_array(size_t size_, const Type& default_ = Type()) :
-            _size(size_), _scale(size_), _array(new Type[size_])
+            _size(size_), _scale(size_), _array(new Type[size_]), forward_generator<Type>(new generator(this))
     {
         for (size_t index = 0; index < size_; ++index) {
             _array[index] = default_;
@@ -60,20 +51,25 @@ public:
     }
 
     dynamic_array(const dynamic_array<Type>& other_) :
-            _size(other_._size), _scale(other_._scale), _array(new Type[_scale])
+            _size(other_._size), _scale(other_._scale), _array(new Type[_scale]),
+            forward_generator<Type>(new generator(this))
     {
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = other_._array[index];
         }
     }
 
-    dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array) {
+    dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array),
+                                                  forward_generator<Type>(new generator(this))
+    {
         other_._size = other_._scale = 0;
         other_._array = nullptr;
     }
 
     template <typename Array, typename = enable_if_array<Array>>
-    explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]) {
+    explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]),
+                                             forward_generator<Type>(new generator(this))
+    {
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = array_forward<Array>(other_[index]);
         }
@@ -113,6 +109,30 @@ public:
         }
         return *this;
     }
+
+    class generator : public random_access_generator_base<Type> {
+    public:
+        generator() : _array(this) {}
+
+        generator(dynamic_array<Type>* array_) : _array(array_) {}
+
+        ~generator() = default;
+
+        generator* copy() {
+            return new generator(_array);
+        }
+
+        Type& get(size_t index_) {
+            return _array->operator[](index_);
+        }
+
+        size_t size() {
+            return _array->size();
+        }
+
+    private:
+        dynamic_array<Type>* _array;
+    };
 
     inline size_t size() const {
         return _size;
@@ -186,43 +206,6 @@ private:
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
-
-namespace _CYANPRISM_NAMESPACE_DETAILS {
-    template <typename Type>
-    class _dynamic_array_generator : public random_access_generator<Type> {
-    public:
-        _dynamic_array_generator(dynamic_array<Type>* array_, size_t first_, size_t second_) :
-                _array(array_), _begin(first_), _end(second_), _current(first_) {}
-
-        _dynamic_array_generator(const _dynamic_array_generator&) = default;
-
-        _dynamic_array_generator(_dynamic_array_generator&&) = default;
-
-        _dynamic_array_generator<Type>& operator=(const _dynamic_array_generator&) = default;
-
-        _dynamic_array_generator<Type>& operator=(_dynamic_array_generator&&) = default;
-
-        ~_dynamic_array_generator() = default;
-
-        Type& get() {
-            return _array->operator[](_current);
-        }
-
-        void move(int delta_) {
-            _current += delta_;
-        }
-
-        bool empty() {
-            return _current == _end;
-        }
-
-    private:
-        dynamic_array<Type>* _array;
-        size_t _begin;
-        size_t _end;
-        size_t _current;
-    };
-}
 
 
 template <typename Type, size_t Size>
