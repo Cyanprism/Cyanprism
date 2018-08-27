@@ -5,11 +5,12 @@
 
 #include "_define"
 #include "algorithm"
-#include "base"
+//#include "base"
 #include "generator"
 
 #include <cstddef>
 #include <iterator>
+#include <stdexcept>
 #include <type_traits>
 
 namespace _CYANPRISM_NAMESPACE {
@@ -18,11 +19,11 @@ namespace _CYANPRISM_NAMESPACE {
 template <typename Type>
 class dynamic_array;
 
-template <typename Type, size_t Size>
+template <typename Type, std::size_t Size>
 class static_array;
 
 namespace _CYANPRISM_DETAILS_NAMESPACE {
-    template<typename Type, size_t Size>
+    template<typename Type, std::size_t Size>
     struct _array {
         using type = static_array<Type, Size>;
     };
@@ -33,17 +34,22 @@ namespace _CYANPRISM_DETAILS_NAMESPACE {
     };
 }
 
-template <typename Type, size_t Size = 0>
+template <typename Type, std::size_t Size = 0>
 using array = typename _CYANPRISM_DETAILS_NAMESPACE::_array<Type, Size>::type;
 
 
 template <typename Type>
-class dynamic_array : public forward_generator<Type> {
+class dynamic_array : public random_access_generator<Type> {
 public:
-    dynamic_array() : _size(0), _scale(0), _array(nullptr), forward_generator<Type>(new generator(this)) {}
+    class entire_generator;
+    class generator;
+
+    dynamic_array() : _size(0), _scale(0), _array(nullptr),
+                      random_access_generator<Type>(new entire_generator(this)) {}
 
     explicit dynamic_array(size_t size_, const Type& default_ = Type()) :
-            _size(size_), _scale(size_), _array(new Type[size_]), forward_generator<Type>(new generator(this))
+            _size(size_), _scale(size_), _array(new Type[size_]),
+            random_access_generator<Type>(new entire_generator(this))
     {
         for (size_t index = 0; index < size_; ++index) {
             _array[index] = default_;
@@ -52,26 +58,28 @@ public:
 
     dynamic_array(const dynamic_array<Type>& other_) :
             _size(other_._size), _scale(other_._scale), _array(new Type[_scale]),
-            forward_generator<Type>(new generator(this))
+            random_access_generator<Type>(new const entire_generator(this))
     {
         for (size_t index = 0; index < _size; ++index) {
             _array[index] = other_._array[index];
         }
     }
 
-    dynamic_array(dynamic_array<Type>&& other_) : _size(other_._size), _scale(other_._scale), _array(other_._array),
-                                                  forward_generator<Type>(new generator(this))
+    dynamic_array(dynamic_array<Type>&& other_) :
+            _size(other_._size), _scale(other_._scale), _array(other_._array),
+            random_access_generator<Type>(new const entire_generator(this))
     {
         other_._size = other_._scale = 0;
         other_._array = nullptr;
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    explicit dynamic_array(Array&& other_) : _size(other_.size()), _scale(other_.size()), _array(new Type[_size]),
-                                             forward_generator<Type>(new generator(this))
+    template <typename GeneratorType>
+    dynamic_array(forward_generator<GeneratorType> generator_) :
+            _size(0), _scale(0), _array(nullptr), random_access_generator<Type>(new const entire_generator(this))
     {
-        for (size_t index = 0; index < _size; ++index) {
-            _array[index] = array_forward<Array>(other_[index]);
+        while (generator_) {
+            push_back(*generator_);
+            ++generator_;
         }
     }
 
@@ -99,41 +107,6 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    dynamic_array<Type>& operator=(Array&& other_) {
-        delete[] _array;
-        _size = _scale = other_.size();
-        _array = new Type[_scale];
-        for (size_t index = 0; index < _size; ++index) {
-            _array[index] = array_forward<Array>(other_[index]);
-        }
-        return *this;
-    }
-
-    class generator : public random_access_generator_base<Type> {
-    public:
-        generator() : _array(this) {}
-
-        generator(dynamic_array<Type>* array_) : _array(array_) {}
-
-        ~generator() = default;
-
-        generator* copy() {
-            return new generator(_array);
-        }
-
-        Type& get(size_t index_) {
-            return _array->operator[](index_);
-        }
-
-        size_t size() {
-            return _array->size();
-        }
-
-    private:
-        dynamic_array<Type>* _array;
-    };
-
     inline size_t size() const {
         return _size;
     }
@@ -142,7 +115,7 @@ public:
         return _scale;
     }
 
-    void rescale(size_t new_scale_) {
+    void rescale(const size_t new_scale_) {
         if (new_scale_ == _scale) { return; }
         _size = cp::min(_size, new_scale_);
         auto new_array = new Type[new_scale_];
@@ -154,7 +127,7 @@ public:
         _scale = new_scale_;
     }
 
-    void resize(size_t new_size_) {
+    void resize(const size_t new_size_) {
         if (new_size_ > _scale) {
             rescale(max(new_size_, static_cast<size_t>(_scale * _scale_coefficient)));
             _size = new_size_;
@@ -166,14 +139,14 @@ public:
         }
     }
 
-    Type& operator[](size_t index_) {
+    Type& operator[](const size_t index_) {
         if (index_ >= _size) {
             resize(index_ + 1);
         }
         return _array[index_];
     }
 
-    const Type& operator[](size_t index_) const {
+    const Type& operator[](const size_t index_) const {
         if (index_ >= _size) {
             throw;
         }
@@ -207,38 +180,99 @@ private:
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
 
+template <typename Type>
+class dynamic_array<Type>::entire_generator : public random_access_generator_implementation<Type> {
+public:
+    entire_generator() = delete;
+
+    entire_generator(dynamic_array<Type>* const array_) : _array(array_) {}
+
+    ~entire_generator() = default;
+
+    generator* copy() const {
+        return new generator(_array, 0, size());
+    }
+
+    Type& get(const size_t index_) {
+        return _array->operator[](index_);
+    }
+
+    size_t size() const {
+        return _array->size();
+    }
+
+    Type& get() {
+        throw std::logic_error("You can't call cp::dynamic_array::entire_generator::get(). \
+Try to copy generator instead of using reference.");
+    }
+
+    void next() {
+        throw std::logic_error("You can't call cp::dynamic_array::entire_generator::next(). \
+Try to copy generator instead of using reference.");
+    }
+
+    bool empty() const {
+        throw std::logic_error("You can't call cp::dynamic_array::entire_generator::empty(). \
+Try to copy generator instead of using reference.");
+    }
+
+private:
+    dynamic_array<Type>* _array;
+};
+
+template <typename Type>
+class dynamic_array<Type>::generator : public random_access_generator_implementation<Type> {
+public:
+    generator() = delete;
+
+    generator(dynamic_array<Type>* const array_, const size_t begin_, const size_t end_) :
+            _array(array_), _begin(begin_), _end(end_) {}
+
+    ~generator() = default;
+
+    generator* copy() const {
+        return new generator(*this);
+    }
+
+    Type& get(const size_t index_) {
+        return _array->operator[](_begin + index_);
+    }
+
+    size_t size() const {
+        return _end - _begin;
+    }
+
+private:
+    dynamic_array<Type>* _array;
+    const size_t _begin;
+    const size_t _end;
+};
+
 
 template <typename Type, size_t Size>
-class static_array : public array_base<Type> {
+class static_array : public random_access_generator<Type> {
 public:
-    static_array() = default;
+    static_array() : random_access_generator<Type>(new generator(this)) {
+        for (size_t index = 0; index < Size; ++index) {
+            _array[index] = Type();
+        }
+    }
 
-    explicit static_array(const Type& default_) {
+    explicit static_array(const Type& default_) : random_access_generator<Type>(new generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = default_;
         }
     }
 
-    static_array(const static_array& other_) {
+    static_array(const static_array& other_) : random_access_generator<Type>(new generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = other_._array[index];
         }
     }
 
-    static_array(static_array&& other_) {
+    static_array(static_array&& other_) : random_access_generator<Type>(new generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
             _array[index] = std::move(other_._array[index]);
-        }
-    }
-
-    template <typename Array, typename = enable_if_array<Array>>
-    explicit static_array(Array&& other_) {
-        size_t size = min(Size, other_.size());
-        for (size_t index = 0; index < size; ++index) {
-            _array[index] = array_forward<Array>(other_[index]);
-        }
-        for (size_t index = size; index < Size; ++index) {
-            _array[index] = Type();
         }
     }
 
@@ -258,17 +292,29 @@ public:
         return *this;
     }
 
-    template <typename Array, typename = enable_if_array<Array>>
-    static_array<Type, Size>& operator=(Array&& other_) {
-        size_t size = min(Size, other_.size());
-        for (size_t index = 0; index < size; ++index) {
-            _array[index] = array_forward<Array>(other_[index]);
+    class generator : public random_access_generator_implementation<Type> {
+    public:
+        generator() = delete;
+
+        generator(static_array<Type, Size>* const array_) : _array(array_) {}
+
+        ~generator() = default;
+
+        generator* copy() const {
+            return new generator(_array);
         }
-        for (size_t index = size; index < Size; ++index) {
-            _array[index] = Type();
+
+        Type& get(const size_t index_) {
+            return _array->operator[](index_);
         }
-        return *this;
-    }
+
+        size_t size() const {
+            return _array->size();
+        }
+
+    private:
+        static_array<Type, Size>* _array;
+    };
 
     inline size_t size() const {
         return Size;

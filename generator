@@ -4,26 +4,28 @@
 
 
 #include "_define"
+//#include "numeric"
 
+#include <iostream>
 #include <type_traits>
 
 namespace _CYANPRISM_NAMESPACE {
 
 
 template <typename Type>
-class forward_generator_base {
+class forward_generator_implementation {
 public:
     virtual Type& get() = 0;
     virtual void next() = 0;
-    virtual bool empty() = 0;
-    virtual forward_generator_base* copy() = 0;
-    virtual ~forward_generator_base() = default;
+    virtual bool empty() const = 0;
+    virtual forward_generator_implementation* copy() const = 0;
+    virtual ~forward_generator_implementation() = default;
 };
 
 template <typename Type>
 class forward_generator {
 public:
-    forward_generator(forward_generator_base<Type>* generator_) : _generator(generator_) {}
+    forward_generator(forward_generator_implementation<Type>* const generator_) : _generator(generator_) {}
 
     forward_generator(const forward_generator<Type>& other_) : _generator(other_._generator->copy()) {}
 
@@ -54,26 +56,32 @@ public:
         _generator->next();
     }
 
-    inline void operator++(int) {
+    inline Type operator++(int) {
+        Type result = operator*();
         operator++();
+        return result;
+    }
+
+    inline bool empty() const {
+        return _generator->empty();
     }
 
     operator bool() {
-        return !_generator->empty();
+        return !empty();
     }
 
 protected:
-    forward_generator_base<Type>* _generator;
+    forward_generator_implementation<Type>* _generator;
 };
 
 
 template <typename Type>
-class random_access_generator_base : public forward_generator_base<Type> {
+class random_access_generator_implementation : public forward_generator_implementation<Type> {
 public:
-    virtual Type& get(size_t index_) = 0;
-    virtual size_t size() = 0;
-    virtual random_access_generator_base* copy() = 0;
-    virtual ~random_access_generator_base() = default;
+    virtual Type& get(const size_t index_) = 0;
+    virtual size_t size() const = 0;
+    virtual random_access_generator_implementation* copy() const = 0;
+    virtual ~random_access_generator_implementation() = default;
 
     Type& get() {
         return get(_current);
@@ -83,7 +91,7 @@ public:
         ++_current;
     }
 
-    bool empty() {
+    bool empty() const {
         return _current == size();
     }
 
@@ -92,9 +100,10 @@ private:
 };
 
 template <typename Type>
-class random_access_generator : private forward_generator<Type> {
+class random_access_generator : public forward_generator<Type> {
 public:
-    random_access_generator(random_access_generator_base<Type>* generator_) : forward_generator<Type>(generator_) {}
+    random_access_generator(random_access_generator_implementation<Type>* generator_) :
+        forward_generator<Type>(generator_) {}
 
     random_access_generator(const random_access_generator<Type>&) = default;
 
@@ -106,14 +115,37 @@ public:
 
     ~random_access_generator() = default;
 
-    Type& operator[](size_t index_) {
-        return dynamic_cast<random_access_generator_base<Type>*>(forward_generator<Type>::_generator)->get(index_);
+    Type& operator[](const size_t index_) {
+        return dynamic_cast<random_access_generator_implementation<Type>*>
+        (forward_generator<Type>::_generator)->get(index_);
     }
 
     size_t size() {
-        return dynamic_cast<random_access_generator_base<Type>*>(forward_generator<Type>::_generator)->size();
+        return dynamic_cast<random_access_generator_implementation<Type>*>
+        (forward_generator<Type>::_generator)->size();
     }
+
+    Type& operator*() = delete;
+    void operator++() = delete;
+    Type operator++(int) = delete;
+    operator bool() = delete;
 };
+
+
+template <typename Type>
+std::ostream& operator<<(std::ostream& out_, forward_generator<Type> generator_) {
+    out_ << '(';
+    if (generator_) {
+        out_ << *generator_;
+        ++generator_;
+    }
+    while (generator_) {
+        out_ << ", " << *generator_;
+        ++generator_;
+    }
+    out_ << ')';
+    return out_;
+}
 
 
 }
