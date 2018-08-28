@@ -5,10 +5,10 @@
 
 #include "_define"
 #include "algorithm"
-//#include "base"
 #include "generator"
 
 #include <cstddef>
+#include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <type_traits>
@@ -21,6 +21,11 @@ class dynamic_array;
 
 template <typename Type, std::size_t Size>
 class static_array;
+
+/*
+    const cp::dynamic_array<int> can't change its size but can change its elements. If you want to forbid to change
+    elements you should use cp::dynamic_array<const int> or const cp::dynamic_array<const int>.
+*/
 
 namespace _CYANPRISM_DETAILS_NAMESPACE {
     template<typename Type, std::size_t Size>
@@ -39,17 +44,17 @@ using array = typename _CYANPRISM_DETAILS_NAMESPACE::_array<Type, Size>::type;
 
 
 template <typename Type>
-class dynamic_array : public random_access_generator<Type> {
+class dynamic_array : public random_access_generator<Type&> {
 public:
     class entire_generator;
     class generator;
 
     dynamic_array() : _size(0), _scale(0), _array(nullptr),
-                      random_access_generator<Type>(new entire_generator(this)) {}
+                      random_access_generator<Type&>(new entire_generator(this)) {}
 
     explicit dynamic_array(size_t size_, const Type& default_ = Type()) :
-            _size(size_), _scale(size_), _array(new Type[size_]),
-            random_access_generator<Type>(new entire_generator(this))
+            _size(size_), _scale(size_), _array(new Type[size_]()),
+            random_access_generator<Type&>(new entire_generator(this))
     {
         for (size_t index = 0; index < size_; ++index) {
             _array[index] = default_;
@@ -57,17 +62,17 @@ public:
     }
 
     dynamic_array(const dynamic_array<Type>& other_) :
-            _size(other_._size), _scale(other_._scale), _array(new Type[_scale]),
-            random_access_generator<Type>(new const entire_generator(this))
+            _size(other_._size), _scale(other_._scale), _array(new Type[_scale]()),
+            random_access_generator<Type&>(new entire_generator(this))
     {
         for (size_t index = 0; index < _size; ++index) {
-            _array[index] = other_._array[index];
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = other_._array[index];
         }
     }
 
     dynamic_array(dynamic_array<Type>&& other_) :
             _size(other_._size), _scale(other_._scale), _array(other_._array),
-            random_access_generator<Type>(new const entire_generator(this))
+            random_access_generator<Type&>(new entire_generator(this))
     {
         other_._size = other_._scale = 0;
         other_._array = nullptr;
@@ -75,10 +80,11 @@ public:
 
     template <typename GeneratorType>
     dynamic_array(forward_generator<GeneratorType> generator_) :
-            _size(0), _scale(0), _array(nullptr), random_access_generator<Type>(new const entire_generator(this))
+            _size(0), _scale(0), _array(nullptr), random_access_generator<Type&>(new entire_generator(this))
     {
+        auto proxy = const_cast<dynamic_array<Type>*>(this);
         while (generator_) {
-            push_back(*generator_);
+            proxy->push_back(*generator_);
             ++generator_;
         }
     }
@@ -118,9 +124,9 @@ public:
     void rescale(const size_t new_scale_) {
         if (new_scale_ == _scale) { return; }
         _size = cp::min(_size, new_scale_);
-        auto new_array = new Type[new_scale_];
+        auto new_array = new Type[new_scale_]();
         for (size_t index = 0; index < _size; ++index) {
-            new_array[index] = std::move(_array[index]);
+            const_cast<std::remove_const_t<Type>*>(new_array)[index] = std::move(_array[index]);
         }
         delete[] _array;
         _array = new_array;
@@ -139,16 +145,16 @@ public:
         }
     }
 
-    Type& operator[](const size_t index_) {
+    Type& operator[](const size_t index_) const {
         if (index_ >= _size) {
-            resize(index_ + 1);
+            throw std::out_of_range("Out of range in cp::dynamic_array::operator[]");
         }
         return _array[index_];
     }
 
-    const Type& operator[](const size_t index_) const {
+    Type& operator[](const size_t index_) {
         if (index_ >= _size) {
-            throw;
+            resize(index_ + 1);
         }
         return _array[index_];
     }
@@ -165,7 +171,7 @@ public:
 
     template <typename Type_>
     Type& push_back(Type_&& value_) {
-        return (operator[](size()) = std::forward<Type_>(value_));
+        return const_cast<std::remove_const_t<Type>&>(operator[](size())) = std::forward<Type_>(value_);
     }
 
     void pop_back() {
@@ -176,12 +182,13 @@ private:
     size_t _size;
     size_t _scale;
     Type* _array;
+
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
 };
 
 template <typename Type>
-class dynamic_array<Type>::entire_generator : public random_access_generator_implementation<Type> {
+class dynamic_array<Type>::entire_generator : public random_access_generator_implementation<Type&> {
 public:
     entire_generator() = delete;
 
@@ -189,7 +196,7 @@ public:
 
     ~entire_generator() = default;
 
-    generator* copy() const {
+    generator* copy() {
         return new generator(_array, 0, size());
     }
 
@@ -197,7 +204,7 @@ public:
         return _array->operator[](index_);
     }
 
-    size_t size() const {
+    size_t size() {
         return _array->size();
     }
 
@@ -211,7 +218,7 @@ Try to copy generator instead of using reference.");
 Try to copy generator instead of using reference.");
     }
 
-    bool empty() const {
+    bool empty() {
         throw std::logic_error("You can't call cp::dynamic_array::entire_generator::empty(). \
 Try to copy generator instead of using reference.");
     }
@@ -221,7 +228,7 @@ private:
 };
 
 template <typename Type>
-class dynamic_array<Type>::generator : public random_access_generator_implementation<Type> {
+class dynamic_array<Type>::generator : public random_access_generator_implementation<Type&> {
 public:
     generator() = delete;
 
@@ -230,7 +237,7 @@ public:
 
     ~generator() = default;
 
-    generator* copy() const {
+    generator* copy() {
         return new generator(*this);
     }
 
@@ -238,7 +245,7 @@ public:
         return _array->operator[](_begin + index_);
     }
 
-    size_t size() const {
+    size_t size() {
         return _end - _begin;
     }
 
@@ -247,6 +254,12 @@ private:
     const size_t _begin;
     const size_t _end;
 };
+
+template <typename Type>
+std::ostream& operator<<(std::ostream& out_, dynamic_array<Type> array_) {
+    print_generator(out_, array_, "[", "]");
+    return out_;
+}
 
 
 template <typename Type, size_t Size>
