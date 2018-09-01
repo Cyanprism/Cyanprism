@@ -3,6 +3,8 @@
 
 
 
+#error Don't use cp/base
+
 #include "_define"
 
 #include <cstddef>

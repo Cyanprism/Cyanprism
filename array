@@ -46,9 +46,6 @@ using array = typename _CYANPRISM_DETAILS_NAMESPACE::_array<Type, Size>::type;
 template <typename Type>
 class dynamic_array : public random_access_generator<Type&> {
 public:
-    class entire_generator;
-    class generator;
-
     dynamic_array() : _size(0), _scale(0), _array(nullptr),
                       random_access_generator<Type&>(new entire_generator(this)) {}
 
@@ -57,7 +54,7 @@ public:
             random_access_generator<Type&>(new entire_generator(this))
     {
         for (size_t index = 0; index < size_; ++index) {
-            _array[index] = default_;
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = default_;
         }
     }
 
@@ -82,11 +79,7 @@ public:
     dynamic_array(forward_generator<GeneratorType> generator_) :
             _size(0), _scale(0), _array(nullptr), random_access_generator<Type&>(new entire_generator(this))
     {
-        auto proxy = const_cast<dynamic_array<Type>*>(this);
-        while (generator_) {
-            proxy->push_back(*generator_);
-            ++generator_;
-        }
+        const_cast<dynamic_array<Type>*>(this)->operator+=(generator_);
     }
 
     ~dynamic_array() {
@@ -110,6 +103,22 @@ public:
         _array = other_._array;
         other_._size = other_._scale = 0;
         other_._array = nullptr;
+        return *this;
+    }
+
+    template <typename GeneratorType>
+    dynamic_array<Type>& operator=(forward_generator<GeneratorType> generator_) {
+        clear();
+        operator+=(generator_);
+        return *this;
+    }
+
+    template <typename GeneratorType>
+    dynamic_array<Type>& operator+=(forward_generator<GeneratorType> generator_) {
+        while (generator_) {
+            push_back(*generator_);
+            ++generator_;
+        }
         return *this;
     }
 
@@ -165,23 +174,48 @@ public:
         _scale = 0;
     }
 
+    Type& back() const {
+        return operator[](size() - 1);
+    }
+
     Type& push_back() {
         return operator[](size());
     }
 
-    template <typename Type_>
-    Type& push_back(Type_&& value_) {
-        return const_cast<std::remove_const_t<Type>&>(operator[](size())) = std::forward<Type_>(value_);
+    template <typename ValueType>
+    Type& push_back(ValueType&& value_) {
+        return const_cast<std::remove_const_t<Type>&>(operator[](size())) = std::forward<ValueType>(value_);
+    }
+
+    template <typename ValueType>
+    dynamic_array<Type>& operator<<(ValueType&& value_) {
+        push_back(std::forward<ValueType>(value_));
+        return *this;
     }
 
     void pop_back() {
         resize(size() - 1);
     }
 
+    Type pull_back() {
+        Type temporary = back();
+        pop_back();
+        return temporary;
+    }
+
+    template <typename VariableType>
+    dynamic_array<Type>& operator>>(VariableType& variable_) {
+        variable_ = pull_back();
+        return *this;
+    }
+
 private:
     size_t _size;
     size_t _scale;
     Type* _array;
+
+    class entire_generator;
+    class generator;
 
     static constexpr float _scale_coefficient = 1.25;
     static constexpr float _scale_coefficient_2 = _scale_coefficient * _scale_coefficient;
@@ -263,29 +297,47 @@ std::ostream& operator<<(std::ostream& out_, dynamic_array<Type> array_) {
 
 
 template <typename Type, size_t Size>
-class static_array : public random_access_generator<Type> {
+class static_array : public random_access_generator<Type&> {
 public:
-    static_array() : random_access_generator<Type>(new generator(this)) {
+    static_array() : _array(), random_access_generator<Type&>(new entire_generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
-            _array[index] = Type();
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = Type();
         }
     }
 
-    explicit static_array(const Type& default_) : random_access_generator<Type>(new generator(this)) {
+    explicit static_array(const Type& default_) :
+            _array(), random_access_generator<Type&>(new entire_generator(this))
+    {
         for (size_t index = 0; index < Size; ++index) {
-            _array[index] = default_;
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = default_;
         }
     }
 
-    static_array(const static_array& other_) : random_access_generator<Type>(new generator(this)) {
+    static_array(const static_array& other_) : _array(), random_access_generator<Type&>(new entire_generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
-            _array[index] = other_._array[index];
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = other_._array[index];
         }
     }
 
-    static_array(static_array&& other_) : random_access_generator<Type>(new generator(this)) {
+    static_array(static_array&& other_) : _array(), random_access_generator<Type&>(new entire_generator(this)) {
         for (size_t index = 0; index < Size; ++index) {
-            _array[index] = std::move(other_._array[index]);
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = std::move(other_._array[index]);
+        }
+    }
+
+    template <typename GeneratorType>
+    static_array(forward_generator<GeneratorType> generator_) :
+            _array(), random_access_generator<Type&>(new entire_generator(this))
+    {
+        size_t index = 0;
+        while (generator_ && index < size()) {
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = *generator_;
+            ++generator_;
+            ++index;
+        }
+        while (index < size()) {
+            const_cast<std::remove_const_t<Type>*>(_array)[index] = Type();
+            ++index;
         }
     }
 
@@ -305,45 +357,94 @@ public:
         return *this;
     }
 
-    class generator : public random_access_generator_implementation<Type> {
-    public:
-        generator() = delete;
-
-        generator(static_array<Type, Size>* const array_) : _array(array_) {}
-
-        ~generator() = default;
-
-        generator* copy() const {
-            return new generator(_array);
-        }
-
-        Type& get(const size_t index_) {
-            return _array->operator[](index_);
-        }
-
-        size_t size() const {
-            return _array->size();
-        }
-
-    private:
-        static_array<Type, Size>* _array;
-    };
-
     inline size_t size() const {
         return Size;
     }
 
-    Type& operator[](size_t index_) {
-        return _array[index_];
-    }
-
-    const Type& operator[](size_t index_) const {
-        return _array[index_];
+    Type& operator[](size_t index_) const {
+        return const_cast<Type&>(_array[index_]);
     }
 
 private:
     Type _array[Size];
+
+    class entire_generator;
+    class generator;
 };
+
+template <typename Type, size_t Size>
+class static_array<Type, Size>::entire_generator : public random_access_generator_implementation<Type&> {
+public:
+    entire_generator() = delete;
+
+    entire_generator(static_array<Type, Size>* const array_) : _array(array_) {}
+
+    ~entire_generator() = default;
+
+    generator* copy() {
+        return new generator(_array, 0, size());
+    }
+
+    Type& get(const size_t index_) {
+        return _array->operator[](index_);
+    }
+
+    size_t size() {
+        return _array->size();
+    }
+
+    Type& get() {
+        throw std::logic_error("You can't call cp::static_array::entire_generator::get(). \
+Try to copy generator instead of using reference.");
+    }
+
+    void next() {
+        throw std::logic_error("You can't call cp::static_array::entire_generator::next(). \
+Try to copy generator instead of using reference.");
+    }
+
+    bool empty() {
+        throw std::logic_error("You can't call cp::static_array::entire_generator::empty(). \
+Try to copy generator instead of using reference.");
+    }
+
+private:
+    static_array<Type, Size>* _array;
+};
+
+template <typename Type, size_t Size>
+class static_array<Type, Size>::generator : public random_access_generator_implementation<Type&> {
+public:
+    generator() = delete;
+
+    generator(static_array<Type, Size>* const array_, size_t begin_, size_t end_) :
+            _array(array_), _begin(begin_), _end(end_) {}
+
+    ~generator() = default;
+
+    generator* copy() {
+        return new generator(*this);
+    }
+
+    Type& get(const size_t index_) {
+        return _array->operator[](_begin + index_);
+    }
+
+    size_t size() {
+        return _end - _begin;
+    }
+
+private:
+    static_array<Type, Size>* _array;
+    size_t _begin;
+    size_t _end;
+};
+
+template <typename Type, size_t Size>
+std::ostream& operator<<(std::ostream& out_, static_array<Type, Size> array_) {
+    print_generator(out_, array_, "[", "]");
+    return out_;
+}
 
 
 

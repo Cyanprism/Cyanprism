@@ -66,8 +66,62 @@ public:
         return !empty();
     }
 
+    forward_generator<Type>& operator+=(forward_generator<Type>& other_) {
+        _generator = new merging_generator(_generator, other_._generator->copy());
+        return *this;
+    }
+
 protected:
     forward_generator_implementation<Type>* _generator;
+
+private:
+    class merging_generator : public forward_generator_implementation<Type> {
+    public:
+        merging_generator(forward_generator_implementation<Type>* first_generator_,
+                forward_generator_implementation<Type>* second_generator_) :
+                _first_generator(first_generator_), _second_generator(second_generator_) {}
+
+        merging_generator(const merging_generator&) = default;
+
+        merging_generator(merging_generator&&) = default;
+
+        ~merging_generator() {
+            delete _first_generator;
+            delete _second_generator;
+        }
+
+        merging_generator& operator=(const merging_generator&) = default;
+
+        merging_generator& operator=(merging_generator&&) = default;
+
+        Type get() {
+            if (!_first_generator->empty()) {
+                return _first_generator->get();
+            } else {
+                return _second_generator->get();
+            }
+        }
+
+        void next() {
+            if (!_first_generator->empty()) {
+                _first_generator->next();
+            } else {
+                _second_generator->next();
+            }
+        }
+
+        bool empty() {
+            return _first_generator->empty() && _second_generator->empty();
+        }
+
+        merging_generator* copy() {
+            return new merging_generator(_first_generator->copy(), _second_generator->copy());
+        }
+
+    private:
+        forward_generator_implementation<Type>* _first_generator;
+        forward_generator_implementation<Type>* _second_generator;
+    };
 };
 
 
